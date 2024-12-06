@@ -1,7 +1,7 @@
 import { InlineConfig, build } from "vite";
 import { resolve } from "path";
 import { parseArgs } from "node:util";
-
+import dts from 'vite-plugin-dts'
 import { platform, sapi } from "../meta.json";
 
 const cwd = process.cwd();
@@ -115,6 +115,7 @@ const base: InlineConfig = {
 			},
 		],
 	},
+	plugins: [dts({ rollupTypes: true })]
 };
 
 console.log({ base });

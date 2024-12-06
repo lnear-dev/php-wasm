@@ -4,6 +4,7 @@
   "description": "Builds php-wasm, php-cgi-wasm & dependencies.",
   "repository": "https://github.com/seanmorris/php-wasm",
   "author": "Sean Morris<php-wasm@seanmorr.is>",
+  "type": "module",
   "license": "Apache-2.0",
   "bin": {
     "php-wasm-builder": "./bin/php-wasm-builder.js"
@@ -20,8 +21,10 @@
     "@babel/core": "^7.8.7",
     "@babel/plugin-proposal-class-properties": "^7.10.4",
     "@babel/preset-env": "^7.0.0",
+    "@types/emscripten": "^1.39.13",
+    "@types/node": "^22.10.1",
     "cv3-test": "^0.1.6",
-    "pobot": "^0.1.5",
+    "esbuild": "0.24.0",
     "pdo-cfd1": "0.0.9-alpha-23",
     "pdo-pglite": "0.0.9-alpha-23",
     "php-wasm-dom": "0.0.9-alpha-23",
@@ -39,12 +42,10 @@
     "php-wasm-xml": "0.0.9-alpha-23",
     "php-wasm-yaml": "0.0.9-alpha-23",
     "php-wasm-zlib": "0.0.9-alpha-23",
-    "vrzno": "0.0.9-alpha-23",
-    "@types/emscripten": "^1.39.13",
-    "@types/node": "^22.10.1",
-    "esbuild": "0.24.0",
+    "pobot": "^0.1.5",
     "typescript": "^5.7.2",
-    "vite": "^6.0.2"
+    "vite": "^6.0.2",
+    "vrzno": "0.0.9-alpha-23"
   },
   "contributors": [
     {
@@ -62,5 +63,8 @@
     "wasm",
     "php-wasm",
     "vrzno"
-  ]
+  ],
+  "devDependencies": {
+    "vite-plugin-dts": "^4.3.0"
+  }
 }

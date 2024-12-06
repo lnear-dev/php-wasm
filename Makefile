@@ -441,7 +441,7 @@ ${PHP_DIST_DIR}/%.mjs:
 	node ./bin/build-source.js $* --esm --dir=${PHP_DIST_DIR}
 
 bin/%.js: scripts/%.ts
-	./node_modules/.bin/esbuild $< --bundle --outfile=$@ --platform=node
+	./node_modules/.bin/esbuild $< --outfile=$@ --platform=node
 
 bin: bin/build-source.js bin/php-wasm-builder.js bin/translate-test.js
 
