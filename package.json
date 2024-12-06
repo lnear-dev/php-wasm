@@ -12,6 +12,7 @@
     "build": "make",
     "build-image": "make image",
     "clean": "make clean",
+    "dev": "vite dev",
     "test": "make test"
   },
   "dependencies": {
@@ -38,7 +39,12 @@
     "php-wasm-xml": "0.0.9-alpha-23",
     "php-wasm-yaml": "0.0.9-alpha-23",
     "php-wasm-zlib": "0.0.9-alpha-23",
-    "vrzno": "0.0.9-alpha-23"
+    "vrzno": "0.0.9-alpha-23",
+    "@types/emscripten": "^1.39.13",
+    "@types/node": "^22.10.1",
+    "esbuild": "0.24.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.2"
   },
   "contributors": [
     {
