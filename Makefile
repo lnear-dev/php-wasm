@@ -3,7 +3,6 @@
 
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
-EMCC=ccache emcc
 
 ## Defaults:
 ENV_DIR?=.
