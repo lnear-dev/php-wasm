@@ -1,0 +1,4 @@
+{
+    "platform": ["Node", "Web", "WebView", "Worker", "Shell"],
+    "sapi": ["Cli", "Cgi"]
+}
