@@ -13,7 +13,6 @@
     "build": "make",
     "build-image": "make image",
     "clean": "make clean",
-    "dev": "vite dev",
     "test": "make test"
   },
   "dependencies": {
