@@ -111,7 +111,7 @@ const base: InlineConfig = {
 			},
 			{
 				find: generatedFilesRegex,
-				replacement: resolve(cwd, "source", "generated", "$1"),
+				replacement: resolve(cwd, "generated", "$1"),
 			},
 		],
 	},
