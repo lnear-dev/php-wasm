@@ -1,12 +1,12 @@
 import { PhpBase } from "./Base";
-import PhpBinary from "php-web";
+import PHP from "php-web";
 import { commitTransaction, startTransaction } from "../common/webTransactions";
 import { Deferred } from "../common/Deferred";
-export * from "./ScriptRunner";
+export * from "./Runner/Component";
 
 export class PhpWeb extends PhpBase {
 	constructor(args = {}) {
-		super(PhpBinary, args);
+		super(PHP, args);
 	}
 
 	startTransaction() {

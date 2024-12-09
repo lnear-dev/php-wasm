@@ -1,8 +1,6 @@
 import { PhpCgiBase } from "./Base";
-import { commitTransaction, startTransaction } from "../common/webTransactions";
-import { resolveDependencies } from "../common/resolveDependencies";
-import { PhpBase } from "../Php/Base";
-import { Deferred } from "@/common/Deferred";
+import { PhpBase } from "../Cli/Base";
+import { commitTransaction, startTransaction, resolveDependencies, Deferred } from "../common";
 
 const NUM = "number";
 

@@ -1,3 +1,6 @@
+/// <reference types="emscripten" />
+/// <reference lib="webworker" />
+
 type FSType = typeof FS;
 
 type WriteFileOptions = { flags?: string | undefined };
@@ -128,3 +131,14 @@ declare module "php-*webview" {
 
 declare const Module: PHPWasmModule;
 declare const ENV: Record<string, string>;
+
+//polyfill worker types
+
+interface ExtendableEvent extends Event {
+	waitUntil(f: Promise<any>): void;
+}
+
+declare var ExtendableEvent: {
+	prototype: ExtendableEvent;
+	new(type: string, eventInitDict?: ExtendableEventInit): ExtendableEvent;
+};

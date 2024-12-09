@@ -1,7 +1,4 @@
-version: '3'
-
 services:
-
   emscripten-builder:
     # user: "${UID:-0}:${GID:-0}"
     image: seanmorris/phpwasm-emscripten-builder
@@ -15,4 +12,4 @@ services:
       - ./:/src
       - /tmp/emsdk-cache:/emsdk/upstream/emscripten/cache/
       - ./.cache:/emsdk_portable/.data/cache/asmjs/
-    command: [bash]
+    command: [ bash ]

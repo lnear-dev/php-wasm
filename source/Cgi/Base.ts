@@ -1,31 +1,11 @@
 import { phpVersion, phpVersionFull } from "config";
-import { parseResponse } from "@/PhpCgi/parseResponse";
+import { parseResponse } from "./parseResponse";
 import { breakoutRequest } from "./breakoutRequest";
-import { fsOps } from "../common/fsOps";
-import { resolveDependencies } from "../common/resolveDependencies";
-import { PhpBase } from "../Php/Base";
-import { Deferred } from "@/common/Deferred";
+import { fsOps, resolveDependencies, Deferred } from "../common";
+import { PhpBase } from "../Cli/Base";
 
-/**
- * An object representing a dynamically loaded data file.
- * @typedef {string|object} FileDef
- * @property {string} url
- * @property {string} path
- * @property {string} parent
- */
-
-/**
- * A string or object representing a dynamically loaded shared library.
- * @typedef {string|object} LibDef
- * @property {string} name
- * @property {string} url
- * @property {boolean} ini
- * @property {function():libDef[]} getLibs
- * @property {function():fileDef[]} getFiles
- */
 
 const NUM = "number";
-
 //*/
 const putEnv = (php: PHPWasmModule, key: string, value: string) =>
 	php.ccall(

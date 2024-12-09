@@ -1,5 +1,6 @@
 import { PhpCgiWebBase } from "./WebBase";
-import PHP from "php-cgi-webview";
+import PHP from "php-cgi-web";
+
 
 export class PhpCgiWebview extends PhpCgiWebBase {
 	constructor({

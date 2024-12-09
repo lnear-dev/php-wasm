@@ -1,5 +1,5 @@
 import { PhpCgiWebBase } from "./WebBase";
-import PHP from "php-cgi-worker";
+import PHP from "php-cgi-web";
 import { resolveDependencies } from "../common/resolveDependencies";
 
 declare const self: ServiceWorkerGlobalScope;

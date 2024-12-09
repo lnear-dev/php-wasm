@@ -7,15 +7,13 @@
             "ES2020",
             "WebWorker",
             "DOM",
-            "DOM.Iterable"
+            "DOM.Iterable",
         ],
         "skipLibCheck": true,
         /* Bundler mode */
         "moduleResolution": "bundler",
-        "allowImportingTsExtensions": true,
         "isolatedModules": true,
         "moduleDetection": "force",
-        "noEmit": true,
         /* Linting */
         "strict": true,
         "noUnusedLocals": true,
@@ -30,6 +28,8 @@
     },
     "include": [
         "source",
-        "source/types.d.ts"
+        "generated",
+        "source/types.d.ts",
+        "source/types.ts"
     ]
 }

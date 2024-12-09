@@ -26,7 +26,7 @@ const commands: {
 		help: "Usage: php-wasm-builder image",
 	},
 	"copy-assets": {
-		cb: () => null,
+		cb: copyAssetsCommand,
 		info: "Copy shared libs & file packages from node_modules to asset directory.",
 		help: "Usage: php-wasm-builder copy-assets",
 	},
@@ -62,7 +62,8 @@ function make(
 ) {
 	return spawnSync("make", [
 		...options,
-		checkRC && rcFileExists ? `ENV_FILE=${rcFile}` : "", rule],
+		checkRC && rcFileExists ? `ENV_FILE=${rcFile}` : "", rule]
+		.filter(Boolean),
 		{ stdio: "inherit", cwd: `${__dirname}/..`, ...spawnWith }
 	);
 }
@@ -142,11 +143,8 @@ function copyAssetsCommand() {
 
 	const options = ["-f", "info.mak", `ENV_DIR=${cwd}/`];
 
-	const getAssetPath = make("get-asset-path", options, true);
-	const getPhpVersion = make("get-php-version", options, true);
-
-	const assetPath = getAssetPath.stdout.trim();
-	const phpVersion = getPhpVersion.stdout.trim();
+	const assetPath = make("get-asset-path", options, true).stdout.trim();
+	const phpVersion = make("get-php-version", options, true).stdout.trim();
 
 	allFiles.forEach((file) => {
 		const name = path.basename(file);
@@ -201,5 +199,6 @@ function run(args: string[]) {
 	commands[command].cb(...argsToFlags(args));
 }
 
+run(process.argv.slice(2));
 
 export { run, commands };

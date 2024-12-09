@@ -1,5 +1,5 @@
 import { PhpCgiWebBase } from "./WebBase";
-import PHP from "php-cgi-worker";
+import PHP from "php-cgi-web";
 
 export class PhpCgiWeb extends PhpCgiWebBase {
 	constructor({
@@ -24,3 +24,5 @@ export class PhpCgiWeb extends PhpCgiWebBase {
 		});
 	}
 }
+
+export default PhpCgiWeb;

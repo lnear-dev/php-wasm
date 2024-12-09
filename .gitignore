@@ -47,3 +47,8 @@ packages/php-cgi-wasm/build.log
 
 docs/static/media/mapped/*
 demo-web/public/static/media/mapped/*
+
+/docker-compose-override.yml
+/*.log
+/*.so
+/icudt72l.dat

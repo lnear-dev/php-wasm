@@ -1,5 +1,5 @@
 import { PhpCgiBase } from "./Base";
-import PHP from "php-cgi-shell";
+import PHP from "php-cgi-web";
 
 export class PhpCgiShell extends PhpCgiBase {
 	constructor({

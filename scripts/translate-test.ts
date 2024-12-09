@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import * as readline from "node:readline";
+import * as readline from "readline";
 import { parseArgs } from "node:util";
 
 interface Sections {
@@ -26,12 +26,10 @@ const libs = {
 class PhpWasmTestTranslator {
 
 	private parseSharedLibs(): string {
-		return Object.keys(libs).reduce((acc, key) => {
-			return (
-				acc +
-				`process.env.${key} === 'dynamic' && sharedLibs.push('php${parsedArgs.phpVersion}-${libs[key]}.so');\n`
-			);
-		}, "const sharedLibs: string[] = [];\n");
+		return Object.keys(libs).reduce(
+			(acc, key) => `${acc}process.env.${key} === 'dynamic' && sharedLibs.push('php${parsedArgs.phpVersion}-${libs[key]}.so');\n`,
+			"const sharedLibs: string[] = [];\n"
+		);
 	}
 
 	private async readSections(): Promise<Sections> {

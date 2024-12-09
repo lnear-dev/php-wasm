@@ -9,6 +9,7 @@ ENV_DIR?=.
 ENV_FILE?=.env
 -include ${ENV_FILE}
 -include ${ENV_FILE}.${PHP_VERSION}
+PHP_GENERATED_DIR=generated
 
 ## Default libraries
 WITH_BCMATH  ?=1
@@ -47,10 +48,14 @@ $(call check_bool,WITH_NETWORKING)
 $(call check_bool,GZIP)
 $(call check_bool,BROTLI)
 
+SUPPORTED_PHP_VERSIONS_STRING=$(shell jq -r '.versions | keys as $keys | [$keys[:-1] | join(", "), $keys[-1]] | join(" or ")' meta.json)
+SUPPORTED_PHP_VERSIONS=$(shell jq -r '.versions | keys | join(" ")' meta.json)
 
-ifeq ($(filter ${PHP_VERSION},8.3 8.2 8.1 8.0),)
-$(error PHP_VERSION MUST BE 8.3, 8.2, 8.1 or 8.0. PLEASE CHECK YOUR SETTINGS FILE: $(abspath ${ENV_FILE}))
+
+ifeq ($(filter ${PHP_VERSION},${SUPPORTED_PHP_VERSIONS}),)
+	$(error PHP_VERSION MUST BE ${SUPPORTED_PHP_VERSIONS_STRING}. PLEASE CHECK YOUR SETTINGS FILE: $(abspath ${ENV_FILE}))
 endif
+
 
 ## More Options
 ifdef PHP_BUILDER_DIR
@@ -138,36 +143,9 @@ PRE_JS_FILES+= ${EXTRA_PRE_JS_FILES}
 
 TEST_LIST=
 
-ifeq (${PHP_VERSION},8.3)
-PHP_VERSION_FULL=8.3.7
-PHP_BRANCH=php-${PHP_VERSION_FULL}
 PHP_AR=libphp
-endif
-
-ifeq (${PHP_VERSION},8.2)
-PHP_VERSION_FULL=8.2.11
+PHP_VERSION_FULL=$(shell jq -r '.versions."${PHP_VERSION}"' meta.json)
 PHP_BRANCH=php-${PHP_VERSION_FULL}
-PHP_AR=libphp
-endif
-
-ifeq (${PHP_VERSION},8.1)
-PHP_VERSION_FULL=8.1.28
-PHP_BRANCH=php-${PHP_VERSION_FULL}
-PHP_AR=libphp
-endif
-
-ifeq (${PHP_VERSION},8.0)
-PHP_VERSION_FULL=8.0.30
-PHP_BRANCH=php-${PHP_VERSION_FULL}
-PHP_AR=libphp
-endif
-
-ifeq (${PHP_VERSION},7.4)
-PHP_VERSION_FULL=7.4.28
-PHP_BRANCH=php-${PHP_VERSION_FULL}
-PHP_AR=libphp7
-EXTRA_FLAGS+= -s EMULATE_FUNCTION_POINTER_CASTS=1
-endif
 
 EXTRA_CFLAGS=
 ZEND_EXTRA_LIBS=
@@ -229,41 +207,25 @@ third_party/php${PHP_VERSION}-src/ext/pib/pib.c: source/pib/pib.c
 	@ ${DOCKER_RUN} cp -prf source/pib third_party/php${PHP_VERSION}-src/ext/
 
 ########### Build the objects. ###########
+FEATURES := \
+    BCMATH:--enable-bcmath \
+    CALENDAR:--enable-calendar \
+    CTYPE:--enable-ctype \
+    EXIF:--enable-exif \
+    FILTER:--enable-filter \
+    SESSION:--enable-session \
+    TOKENIZER:--enable-tokenizer
 
-ifneq (${WITH_NETWORKING},0)
-EXTRA_FLAGS+= -lwebsocket.js
+define CONFIGURE_FEATURE
+ifneq ($$(WITH_$(1)),0)
+CONFIGURE_FLAGS += $(2)
 endif
+endef
 
-ifneq (${WITH_BCMATH},0)
-CONFIGURE_FLAGS+= --enable-bcmath
-endif
+$(foreach feature, $(FEATURES), $(eval $(call CONFIGURE_FEATURE,$(word 1,$(subst :, ,$(feature))),$(word 2,$(subst :, ,$(feature))))))
 
-ifneq (${WITH_CALENDAR},0)
-CONFIGURE_FLAGS+= --enable-calendar
-endif
-
-ifneq (${WITH_CTYPE},0)
-CONFIGURE_FLAGS+= --enable-ctype
-endif
-
-ifneq (${WITH_EXIF},0)
-CONFIGURE_FLAGS+= --enable-exif
-endif
-
-ifneq (${WITH_FILTER},0)
-CONFIGURE_FLAGS+= --enable-filter
-endif
-
-ifneq (${WITH_SESSION},0)
-CONFIGURE_FLAGS+= --enable-session
-endif
-
-ifneq (${WITH_TOKENIZER},0)
-CONFIGURE_FLAGS+= --enable-tokenizer
-endif
-
-ifeq (${WITH_ONIGURUMA},0)
-CONFIGURE_FLAGS+= --disable-mbregex
+ifeq ($(WITH_ONIGURUMA),0)
+CONFIGURE_FLAGS += --disable-mbregex
 endif
 
 ifeq (${WITH_ONIGURUMA},shared)
@@ -335,8 +297,8 @@ endif
 
 PRELOAD_METHOD=--preload-file
 
-SAPI_CLI_PATH=sapi/cgi/php-cgi-${ENVIRONMENT}.${BUILD_TYPE}.${BUILD_TYPE}
-SAPI_CGI_PATH=sapi/cli/php-${ENVIRONMENT}.${BUILD_TYPE}.${BUILD_TYPE}
+SAPI_CGI_PATH=sapi/cgi/php-cgi-${ENVIRONMENT}.js.js
+SAPI_CLI_PATH=sapi/cli/php-${ENVIRONMENT}.js.js
 
 MAIN_MODULE?=1
 ASYNCIFY?=1
@@ -345,16 +307,16 @@ BUILD_FLAGS=-f ../../php.mk \
 	-j${CPU_COUNT} --max-load ${CPU_COUNT} \
 	SKIP_LIBS='${SKIP_LIBS}' \
 	ZEND_EXTRA_LIBS='${ZEND_EXTRA_LIBS}' \
-	SAPI_CGI_PATH='${SAPI_CLI_PATH}' \
-	SAPI_CLI_PATH='${SAPI_CGI_PATH}'\
+	SAPI_CGI_PATH='${SAPI_CGI_PATH}' \
+	SAPI_CLI_PATH='${SAPI_CLI_PATH}'\
 	PHP_CLI_OBJS='sapi/embed/php_embed.lo' \
 	EXTRA_CFLAGS=' -Wno-int-conversion -Wimplicit-function-declaration -flto -fPIC ${EXTRA_CFLAGS} ${SYMBOL_FLAGS} '\
 	EXTRA_CXXFLAGS=' -Wno-int-conversion -Wimplicit-function-declaration -flto -fPIC  ${EXTRA_CFLAGS} ${SYMBOL_FLAGS} '\
 	EXTRA_LDFLAGS_PROGRAM='-O${OPTIMIZE} -static \
 		-Wl,-zcommon-page-size=2097152 -Wl,-zmax-page-size=2097152 -L/src/lib/lib \
 		${SYMBOL_FLAGS} -flto -fPIC \
-		-s EXPORTED_FUNCTIONS='\''["_malloc", "_free", "_main"]'\'' \
-		-s EXPORTED_RUNTIME_METHODS='\''["ccall", "UTF8ToString", "lengthBytesUTF8", "stringToUTF8", "getValue", "setValue", "lengthBytesUTF8", "FS", "ENV"]'\'' \
+		-s EXPORTED_FUNCTIONS="['_malloc', '_free', '_main']" \
+		-s EXPORTED_RUNTIME_METHODS="['ccall', 'UTF8ToString', 'lengthBytesUTF8', 'stringToUTF8', 'getValue', 'setValue', 'lengthBytesUTF8', 'FS', 'ENV']" \
 		-s INITIAL_MEMORY=${INITIAL_MEMORY} \
 		-s MAXIMUM_MEMORY=${MAXIMUM_MEMORY} \
 		-s ENVIRONMENT=${ENVIRONMENT}       \
@@ -368,6 +330,7 @@ BUILD_FLAGS=-f ../../php.mk \
 		-s INVOKE_RUN=0                     \
 		-s MAIN_MODULE=${MAIN_MODULE}       \
 		-s MODULARIZE=1                     \
+		-s EXPORT_ES6=1                     \
 		-s AUTO_NATIVE_LIBRARIES=0          \
 		-s AUTO_JS_LIBRARIES=0              \
 		-s ASYNCIFY=${ASYNCIFY}             \
@@ -381,8 +344,7 @@ BUILD_FLAGS=-f ../../php.mk \
 		${FS_TYPE} \
 		${EXTRA_FILES} \
 		${EXTRA_FLAGS} \
-	'
-BUILD_TYPE ?=js
+		'
 
 ifneq (${PRE_JS_FILES},)
 DEPENDENCIES+= .cache/pre.js
@@ -392,42 +354,37 @@ DEPENDENCIES+= third_party/php${PHP_VERSION}-src/configured ${PHP_CONFIGURE_DEPS
 
 EXTENSIONS_JS=Object.fromEntries(Object.entries({"WITH_BCMATH":"${WITH_BCMATH}","WITH_CALENDAR":"${WITH_CALENDAR}","WITH_CTYPE":"${WITH_CTYPE}","WITH_FILTER":"${WITH_FILTER}","WITH_TOKENIZER":"${WITH_TOKENIZER}","WITH_VRZNO":"${WITH_VRZNO}","WITH_EXIF":"${WITH_EXIF}","WITH_PHAR":"${WITH_PHAR}","WITH_LIBXML":"${WITH_LIBXML}","WITH_DOM":"${WITH_DOM}","WITH_XML":"${WITH_XML}","WITH_SIMPLEXML":"${WITH_SIMPLEXML}","WITH_LIBZIP":"${WITH_LIBZIP}","WITH_ICONV":"${WITH_ICONV}","WITH_SQLITE":"${WITH_SQLITE}","WITH_GD":"${WITH_GD}","WITH_ZLIB":"${WITH_ZLIB}","WITH_LIBPNG":"${WITH_LIBPNG}","WITH_FREETYPE":"${WITH_FREETYPE}","WITH_LIBJPEG":"${WITH_LIBJPEG}","WITH_YAML":"${WITH_YAML}","WITH_TIDY":"${WITH_TIDY}","WITH_MBSTRING":"${WITH_MBSTRING}","WITH_ONIGURUMA":"${WITH_ONIGURUMA}","WITH_OPENSSL":"${WITH_OPENSSL}","WITH_INTL":"${WITH_INTL}"}).filter(([k,v]) => v !== "0"))
 
-MJS_PERL=perl -pi -w -e 's|var _script(Dir\|Name) = import.meta.url;|const importMeta = import.meta;var _script\1 = importMeta.url;|g'
+MJS_PERL=
 
 # $1 - environment
-# $2 - build type
 define php_build_rule
-${PHP_GENERATED_DIR}/php-$(1).$(2): ENVIRONMENT=$(1)
-${PHP_GENERATED_DIR}/php-$(1).$(2): BUILD_TYPE=$(2)
-${PHP_GENERATED_DIR}/php-$(1).$(2): FS_TYPE=$(call get_fs_type,$(1))
-${PHP_GENERATED_DIR}/php-$(1).$(2): ${CGI_DEPENDENCIES} | ${ORDER_ONLY}
-	@ echo -e "\e[33;4mBuilding PHP-CGI for $${ENVIRONMENT} {$${BUILD_TYPE}}\e[0m"
-	$${DOCKER_RUN_IN_PHP} emmake make cgi install-cgi install-build install-programs install-headers -ej$${CPU_COUNT} $${BUILD_FLAGS} PHP_BINARIES=cgi WASM_SHARED_LIBS="$$(addprefix /src/,$${SHARED_LIBS})"
-	$${DOCKER_RUN_IN_PHP} mv -f /src/third_party/php$${PHP_VERSION}-src/sapi/cgi/php-cgi-$${ENVIRONMENT}$${RELEASE_SUFFIX}.$${BUILD_TYPE}.$${BUILD_TYPE} /src/third_party/php$${PHP_VERSION}-src/sapi/cgi/php-cgi-$${ENVIRONMENT}$${RELEASE_SUFFIX}.$${BUILD_TYPE}
-	- cp -Lprf third_party/php$${PHP_VERSION}-src/sapi/cgi/php-cgi-$${ENVIRONMENT}$${RELEASE_SUFFIX}.$${BUILD_TYPE}* $${PHP_GENERATED_DIR}/
+${PHP_GENERATED_DIR}/php-$(1).js: ENVIRONMENT=$(1)
+${PHP_GENERATED_DIR}/php-$(1).js: FS_TYPE=$(call get_fs_type,$(1))
+${PHP_GENERATED_DIR}/php-$(1).js: ${DEPENDENCIES} | ${ORDER_ONLY}
+	@ echo -e "\e[33;4mBuilding PHP-CLI for $${ENVIRONMENT}\e[0m"
+	$${DOCKER_RUN_IN_PHP} emmake make cli install-cli install-build install-programs install-headers \
+		$${BUILD_FLAGS} PHP_BINARIES=cli WASM_SHARED_LIBS="$$(addprefix /src/,$${SHARED_LIBS})" | tee $${PHP_DIST_DIR}/build.log
+	$${DOCKER_RUN_IN_PHP} mv -f \
+		/src/third_party/php$${PHP_VERSION}-src/sapi/cli/php-$${ENVIRONMENT}$${PHP_SUFFIX}.js.js \
+		/src/third_party/php$${PHP_VERSION}-src/sapi/cli/php-$${ENVIRONMENT}$${PHP_SUFFIX}.js
+	- cp -Lprf third_party/php$${PHP_VERSION}-src/sapi/cli/php-$${ENVIRONMENT}$${RELEASE_SUFFIX}.js* $${PHP_GENERATED_DIR}
 	perl -pi -w -e 's|import(name)|import(/* webpackIgnore: true */ name)|g' $$@
 	perl -pi -w -e 's|require("fs")|require(/* webpackIgnore: true */ "fs")|g' $$@
-	$(if $(filter mjs,$(2)),\
-		$(if $(filter web,$(1))\
-			,perl -pi -w -e 's|_setTempRet0|setTempRet0|g' $$@; $(MJS_PERL) $$@,\
-			$(MJS_PERL) $$@\
-		),\
-		perl -pi -w -e 's#([^;{}]+)\s*\?\?=#\1=\1??#g' $$@;\
-		perl -pi -w -e 's#([^;{}]+)\s*\|\|=#\1=\1\|\|#g' $$@
-	)
+	$(if $(filter web,$(1)), perl -pi -w -e 's|_setTempRet0|setTempRet0|g' $$@)
+	perl -pi -w -e 's|var _script(Dir\|Name) = import.meta.url;|const importMeta = import.meta;var _script\1 = importMeta.url;|g' $$@
 	
-	- cp -Lprf $${PHP_GENERATED_DIR}/php-$${ENVIRONMENT}$${RELEASE_SUFFIX}.$${BUILD_TYPE}.* $${PHP_CGI_ASSET_DIR}/
+	- cp -Lprf $${PHP_GENERATED_DIR}/php-$${ENVIRONMENT}$${RELEASE_SUFFIX}.js.* $${PHP_CGI_ASSET_DIR}/
 	$${MAKE} $${ENV_DIR}/$${PHP_CGI_ASSET_DIR}/$${PRELOAD_NAME}.data
 ifneq ($${SKIP_SHARED_LIBS},1)
 	$${MAKE} $$(addprefix $${PHP_CGI_ASSET_DIR}/,$${PHP_ASSET_LIST}) $${PHP_GENERATED_DIR}/config.ts
 endif
 ifeq ($${WITH_SOURCEMAPS},1)
-	$${DOCKER_RUN} ./remap-sourcemap.sh packages/php-cgi-wasm/php-cgi-$(1).$(2).wasm.map
+	$${DOCKER_RUN} ./remap-sourcemap.sh packages/php-cgi-wasm/php-$(1).$(2).wasm.map
 endif
 	@ cat ico.ans >&2
 endef
 
-$(foreach env,$(ENVIRONMENTS),$(foreach type,$(FILE_TYPES),$(eval $(call php_build_rule,$(env),$(type)))))
+$(foreach env,$(ENVIRONMENTS),$(eval $(call php_build_rule,$(env),js)))
 
 ${PHP_GENERATED_DIR}/config.ts:
 	@ echo 'export const phpVersion = "${PHP_VERSION}";'          > $@
@@ -441,7 +398,7 @@ ${PHP_DIST_DIR}/%.mjs:
 	node ./bin/build-source.js $* --esm --dir=${PHP_DIST_DIR}
 
 bin/%.js: scripts/%.ts
-	./node_modules/.bin/esbuild $< --outfile=$@ --platform=node
+	./node_modules/.bin/esbuild $< --outfile=$@ --platform=node --bundle --format=esm --external:vite
 
 bin: bin/build-source.js bin/php-wasm-builder.js bin/translate-test.js
 
@@ -472,21 +429,13 @@ third_party/php${PHP_VERSION}-src/scripts/phpize-built: ${DEPENDENCIES} | ${ORDE
 	${DOCKER_RUN_IN_PHP} chmod +x scripts/phpize
 	${DOCKER_RUN_IN_PHP} touch scripts/phpize-built
 
-patch/php8.3.patch:
-	bash -c 'cd third_party/php8.3-src/ && git diff > ../../patch/php8.3.patch'
-	perl -pi -w -e 's|([ab])/|\1/third_party/php8.3-src/|g' ./patch/php8.3.patch
+define php_patch_rule
+patch/php$(1).patch:
+	bash -c 'cd third_party/php$(1)-src/ && git diff > ../../patch/php$(1).patch'
+	perl -pi -w -e 's|([ab])/|\1/third_party/php$(1)-src/|g' ./patch/php$(1).patch
+endef
 
-patch/php8.2.patch:
-	bash -c 'cd third_party/php8.2-src/ && git diff > ../../patch/php8.2.patch'
-	perl -pi -w -e 's|([ab])/|\1/third_party/php8.2-src/|g' ./patch/php8.2.patch
-
-patch/php8.1.patch:
-	bash -c 'cd third_party/php8.1-src/ && git diff > ../../patch/php8.1.patch'
-	perl -pi -w -e 's|([ab])/|\1/third_party/php8.1-src/|g' ./patch/php8.1.patch
-
-patch/php8.0.patch:
-	bash -c 'cd third_party/php8.0-src/ && git diff > ../../patch/php8.0.patch'
-	perl -pi -w -e 's|([ab])/|\1/third_party/php8.0-src/|g' ./patch/php8.0.patch
+$(foreach version,$(SUPPORTED_PHP_VERSIONS),$(eval $(call php_patch_rule,$(version))))
 
 # patch/libicu.patch:
 # 	bash -c 'cd third_party/libicu-72-1 && git diff > ../../patch/libicu.patch'
@@ -494,20 +443,22 @@ patch/php8.0.patch:
 
 php-clean:
 	${DOCKER_RUN_IN_PHP} rm -f configured
-	${DOCKER_RUN_IN_PHP} bash -c 'rm -f sapi/cli/php-*.js sapi/cli/php-*.mjs sapi/cli/php-*.wasm* sapi/cgi/php-*.js sapi/cgi/php-*.mjs sapi/cgi/php-*.wasm* sapi/cli/php sapi/cgi/php-cgi'
-	${DOCKER_RUN} bash -c 'rm -f packages/php-wasm/php-*.mjs packages/php-cgi-wasm/php-*.mjs packages/php-wasm/php-*.wasm packages/php-cgi-wasm/php-*.wasm packages/php-wasm/Php*.mjs packages/php-cgi-wasm/Php*.mjs'
+	${DOCKER_RUN_IN_PHP} bash -c 'rm -f sapi/cli/php-*.js sapi/cli/php-*.js sapi/cli/php-*.wasm* sapi/cgi/php-*.js sapi/cgi/php-*.js sapi/cgi/php-*.wasm* sapi/cli/php sapi/cgi/php-cgi'
+	${DOCKER_RUN} bash -c 'rm -f packages/php-wasm/php-*.js packages/php-cgi-wasm/php-*.js packages/php-wasm/php-*.wasm packages/php-cgi-wasm/php-*.wasm packages/php-wasm/Php*.js packages/php-cgi-wasm/Php*.js'
 	- ${DOCKER_RUN_IN_PHP} make clean
+
+# packages/php-wasm/*.js* \
+# packages/php-cgi-wasm/*.js* \
 
 clean:
 	${DOCKER_RUN} rm -rf \
 		.cache/config-cache \
 		generated/* \
 		packages/php-wasm/*.js \
-		packages/php-wasm/*.mjs \
 		packages/php-wasm/*.map \
 		packages/php-wasm/mapped \
 		packages/php-cgi-wasm/*.js \
-		packages/php-cgi-wasm/*.mjs \
+		packages/php-cgi-wasm/*.js \
 		packages/php-cgi-wasm/*.map \
 		packages/php-cgi-wasm/mapped \
 		packages/*/*.so \
@@ -519,9 +470,7 @@ clean:
 		demo-source/public/*.data \
 		demo-source/public/*.map \
 		packages/php-wasm/*.data \
-		packages/php-wasm/*.mjs* \
 		packages/php-cgi-wasm/*.data \
-		packages/php-cgi-wasm/*.mjs* \
 		third_party/php${PHP_VERSION}-src/configured \
 		third_party/preload \
 		.cache/pre.js \

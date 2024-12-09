@@ -46,9 +46,6 @@ export async function breakoutRequest(request: RequestLike): Promise<{
 	}
 
 	const url = new URL(request.url);
-
-
-
 	return ({
 		url,
 		method: request.method,

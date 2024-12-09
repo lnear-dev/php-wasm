@@ -1,14 +1,32 @@
-"use strict";
+// scripts/build-source.ts
 import { build } from "vite";
 import { resolve } from "path";
 import { parseArgs } from "node:util";
-import dts from "vite-plugin-dts";
-import { platform, sapi } from "../meta.json";
-const cwd = process.cwd();
-const computed = {
-  platform: platform.map((p) => p.toLowerCase()),
-  sapi: sapi.map((s) => s.toLowerCase()),
-  entries: sapi.map(
+
+// meta.json
+var platform = [
+  "Node",
+  "Web",
+  "Webview",
+  "Worker",
+  "Shell"
+];
+var sapi = [
+  "Cli",
+  "Cgi"
+];
+
+// scripts/build-source.ts
+import { globSync } from "fs";
+var cwd = process.cwd();
+var dirs = globSync(resolve(cwd, "source/*/index.ts")).map((f) => f.slice(cwd.length + 1));
+console.log({ dirs });
+process.exit(0);
+var computed = new class {
+  platform = platform.map((p) => p.toLowerCase());
+  sapiNames = sapi.map((s) => s.toLowerCase());
+  tags = sapi.map((s) => platform.map((p) => `Php${s}${p}`)).flat();
+  entries = sapi.map(
     (k) => {
       const key = k === "Cli" ? "" : k;
       return platform.map(
@@ -20,7 +38,7 @@ const computed = {
               path
             ],
             [
-              `php${key ? `-${key.toLowerCase()}` : ""}${p.toLowerCase()}`,
+              `php${key ? `-${key.toLowerCase()}` : ""}-${p.toLowerCase()}`,
               path
             ]
           ];
@@ -33,9 +51,13 @@ const computed = {
       return acc;
     },
     {}
-  )
-};
-const { values, positionals } = parseArgs({
+  );
+  indexFiles = sapi.map((s) => resolve(cwd, `source/Php${s}/index.ts`));
+  regex = new RegExp(
+    `^(config|php(?:${this.sapiNames.map((s) => `-${s}`).join("|")})?(?:${this.platform.map((p) => `-${p}`).join("|")}))`
+  );
+}();
+var { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     dir: {
@@ -50,59 +72,86 @@ const { values, positionals } = parseArgs({
     esm: {
       type: "boolean",
       default: false
+    },
+    all: {
+      type: "boolean",
+      default: false
     }
   }
 });
 console.log({ cwd, values, positionals });
-const entries = computed.entries;
-const [tag] = positionals;
-if (!(tag in entries)) {
+var entries = computed.entries;
+var { cjs, esm, dir, all } = values;
+var [tag] = positionals;
+if (all) {
+  console.log(
+    await build(config({
+      emptyOutDir: false,
+      lib: {
+        // entry: Object.values(entries),
+        entry: { PhpCgi: resolve(cwd, "source", "PhpCgi", "index.ts") },
+        fileName: (format, entryName2) => `${entryName2}.${format === "es" ? "esm" : format}.js`,
+        name: "PHP",
+        formats: ["es", "cjs"]
+      },
+      rollupOptions: {
+        // external: computed.regex
+      }
+    }))
+  );
+  process.exit(0);
+}
+if (!(tag in entries) && !all) {
   console.error(`Invalid tag: ${tag}`, Object.keys(entries));
   process.exit(1);
 }
-const { cjs, esm, dir } = values;
-const generatedFilesRegex = new RegExp(
-  `^(config|php(?:${computed.sapi.map((s) => `-${s}`).join("|")})?(?:${computed.platform.map((p) => `-${p}`).join("|")}))`
-);
-const base = {
-  configFile: false,
-  root: cwd,
-  build: {
-    rollupOptions: {
-      external: generatedFilesRegex,
-      input: entries[tag],
-      output: !cjs && !esm ? [
+function config(build2) {
+  return {
+    configFile: false,
+    root: cwd,
+    build: build2,
+    resolve: {
+      alias: [
         {
-          format: "esm",
-          entryFileNames: "Php[name].mjs",
-          dir
+          find: "@",
+          replacement: resolve(cwd, "source")
         },
         {
-          format: "cjs",
-          entryFileNames: "Php[name].js",
-          dir
+          find: "@@",
+          replacement: resolve(cwd, "generated")
+        },
+        {
+          find: computed.regex,
+          replacement: resolve(cwd, "generated", "$1")
         }
-      ] : {
-        format: cjs ? "cjs" : "esm",
-        entryFileNames: `Php[name].${cjs ? "js" : "mjs"}`,
-        dir
-      }
-    },
-    ssr: tag.endsWith("Node")
-  },
-  resolve: {
-    alias: [
+      ]
+    }
+    // plugins: [dts({ rollupTypes: true })]
+  };
+}
+var entryName = tag.includes("-") ? tag.split("-").map((s) => s[0].toUpperCase() + s.slice(1)).join("") : tag;
+var runTagged = config({
+  minify: false,
+  rollupOptions: {
+    input: entries[tag],
+    output: !cjs && !esm ? [
       {
-        find: "@",
-        replacement: resolve(cwd, "source")
+        format: "esm",
+        entryFileNames: `${entryName}.mjs`,
+        dir
       },
       {
-        find: generatedFilesRegex,
-        replacement: resolve(cwd, "generated", "$1")
+        format: "cjs",
+        entryFileNames: `${entryName}.js`,
+        dir
       }
-    ]
+    ] : {
+      format: cjs ? "cjs" : "esm",
+      entryFileNames: `${entryName}.${cjs ? "js" : "mjs"}`,
+      dir
+    }
   },
-  plugins: [dts({ rollupTypes: true })]
-};
-console.log({ base });
-await build(base);
+  ssr: tag.endsWith("Node")
+});
+console.log({ ...runTagged.build.rollupOptions, ...runTagged.resolve });
+console.log(await build(runTagged));
